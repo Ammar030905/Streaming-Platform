@@ -1,9 +1,21 @@
 <?php
 require_once 'config.php';
 
-// Fetch gallery images
-$stmt = $pdo->query("SELECT * FROM gallery ORDER BY created_at DESC");
-$images = $stmt->fetchAll();
+$galleryNotice = '';
+$images = [];
+
+// Fetch gallery images safely so a missing table does not crash the page.
+try {
+    $stmt = $pdo->query("SELECT * FROM gallery ORDER BY created_at DESC");
+    $images = $stmt->fetchAll();
+} catch (PDOException $e) {
+    $isMissingGalleryTable = ($e->getCode() === '42S02') || ((int)($e->errorInfo[1] ?? 0) === 1146);
+    if ($isMissingGalleryTable) {
+        $galleryNotice = 'Gallery is not initialized yet. Import database.sql to create the gallery table.';
+    } else {
+        throw $e;
+    }
+}
 
 require_once 'includes/header.php';
 ?>
@@ -16,6 +28,12 @@ require_once 'includes/header.php';
 </div>
 
 <div class="container mb-5">
+    <?php if($galleryNotice): ?>
+        <div class="alert alert-warning text-center">
+            <?= e($galleryNotice) ?>
+        </div>
+    <?php endif; ?>
+
     <?php if(count($images) > 0): ?>
         <div class="gallery-grid">
             <?php foreach($images as $image): ?>
