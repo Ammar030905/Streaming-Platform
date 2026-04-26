@@ -7,9 +7,19 @@ if(!isset($_SESSION['admin_id'])){
 
 $error = '';
 $success = '';
+$galleryTableExists = false;
+
+try {
+    $galleryTableExists = (bool) $pdo->query("SHOW TABLES LIKE 'gallery'")->fetchColumn();
+    if (!$galleryTableExists) {
+        $error = 'Gallery table is missing. Import database.sql to enable gallery management.';
+    }
+} catch (PDOException $e) {
+    $error = 'Unable to verify gallery setup right now.';
+}
 
 // Handle Delete
-if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete_image'])){
+if($galleryTableExists && $_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete_image'])){
     verify_csrf_or_fail();
 
     $id = (int)($_POST['image_id'] ?? 0);
@@ -30,7 +40,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete_image'])){
 }
 
 // Handle Upload
-if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_image'])){
+if($galleryTableExists && $_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_image'])){
     verify_csrf_or_fail();
 
     $title = trim($_POST['title'] ?? '');
@@ -76,7 +86,10 @@ if(isset($_GET['success'])){
 }
 
 // Fetch Gallery Images
-$images = $pdo->query("SELECT * FROM gallery ORDER BY created_at DESC")->fetchAll();
+$images = [];
+if ($galleryTableExists) {
+    $images = $pdo->query("SELECT * FROM gallery ORDER BY created_at DESC")->fetchAll();
+}
 
 require_once 'includes/header.php';
 ?>
@@ -104,13 +117,13 @@ require_once 'includes/header.php';
                     <input type="hidden" name="upload_image" value="1">
                     <div class="mb-3">
                         <label class="form-label">Image Title/Caption (Optional)</label>
-                        <input type="text" name="title" class="form-control bg-secondary text-white border-0">
+                        <input type="text" name="title" class="form-control bg-secondary text-white border-0" <?= $galleryTableExists ? '' : 'disabled' ?>>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Select Image</label>
-                        <input type="file" name="image" class="form-control bg-secondary text-white border-0" required accept="image/*">
+                        <input type="file" name="image" class="form-control bg-secondary text-white border-0" <?= $galleryTableExists ? 'required' : 'disabled' ?> accept="image/*">
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">Upload Image</button>
+                    <button type="submit" class="btn btn-primary w-100" <?= $galleryTableExists ? '' : 'disabled' ?>>Upload Image</button>
                 </form>
             </div>
         </div>
