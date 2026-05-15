@@ -46,9 +46,9 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_event'])){
         }
 
         if ($msg === '') {
-            $stmt = $pdo->prepare("INSERT INTO events (title, description, schedule_date, thumbnail) VALUES (?, ?, ?, ?)");
+            $stmt = $pdo->prepare("INSERT INTO events (title, description, schedule_date, thumbnail) VALUES (?, ?, ?, ?) RETURNING id");
             if($stmt->execute([$title, $description, $schedule_date, $thumbnail])){
-                $event_id = $pdo->lastInsertId();
+                $event_id = $stmt->fetchColumn();
                 $stream_key = 'live_' . bin2hex(random_bytes(10));
                 $pdo->prepare("INSERT INTO streams (event_id, stream_key) VALUES (?, ?)")->execute([$event_id, $stream_key]);
 
@@ -67,12 +67,12 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['event_action'])){
     $action = $_POST['event_action'] ?? '';
     
     if($id > 0 && $action == 'start'){
-        $pdo->prepare("UPDATE events SET status = 'live' WHERE id = ?")->execute([$id]);
-        $pdo->prepare("UPDATE streams SET status = 'online', started_at = NOW(), ended_at = NULL WHERE event_id = ?")->execute([$id]);
+        $pdo->prepare("UPDATE events SET status = 'live'::event_status WHERE id = ?")->execute([$id]);
+        $pdo->prepare("UPDATE streams SET status = 'online'::stream_status WHERE event_id = ?")->execute([$id]);
         logAction('stream_start', "Started stream for event ID $id");
     } elseif($id > 0 && $action == 'stop'){
-        $pdo->prepare("UPDATE events SET status = 'ended' WHERE id = ?")->execute([$id]);
-        $pdo->prepare("UPDATE streams SET status = 'offline', ended_at = NOW() WHERE event_id = ?")->execute([$id]);
+        $pdo->prepare("UPDATE events SET status = 'ended'::event_status WHERE id = ?")->execute([$id]);
+        $pdo->prepare("UPDATE streams SET status = 'offline'::stream_status WHERE event_id = ?")->execute([$id]);
         logAction('stream_stop', "Stopped stream for event ID $id");
     } elseif($id > 0 && $action == 'delete'){
         $pdo->prepare("DELETE FROM events WHERE id = ?")->execute([$id]);

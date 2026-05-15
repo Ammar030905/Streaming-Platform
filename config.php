@@ -32,10 +32,11 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
-define('DB_HOST', envValue('DB_HOST', 'localhost'));
-define('DB_USER', envValue('DB_USER', 'root'));
+define('DB_HOST', envValue('DB_HOST', ''));
+define('DB_PORT', envValue('DB_PORT', '5432'));
+define('DB_USER', envValue('DB_USER', 'postgres'));
 define('DB_PASS', envValue('DB_PASS', ''));
-define('DB_NAME', envValue('DB_NAME', 'stream_platform'));
+define('DB_NAME', envValue('DB_NAME', 'postgres'));
 
 // Prefer configured URL in production; fallback to runtime detection.
 $configuredBaseUrl = rtrim((string) envValue('APP_URL', ''), '/');
@@ -71,8 +72,9 @@ function sendSecurityHeaders()
 sendSecurityHeaders();
 
 try {
+    $dsn = 'pgsql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';sslmode=require';
     $pdo = new PDO(
-        'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+        $dsn,
         DB_USER,
         DB_PASS,
         [

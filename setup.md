@@ -38,12 +38,24 @@ This guide explains how to get your new production-ready Live Streaming platform
 
 ---
 
-## 🛠️ Step 1: Database Setup
+## 🛠️ Step 1: Database Setup (Supabase PL/pgSQL)
 
-1. Open your MySQL interface (e.g., phpMyAdmin, HeidiSQL, or MySQL CLI).
-2. Create or import using the provided `database.sql` file in the project root.
-   - It will automatically create the `stream_platform` database and all required tables: `admins`, `users`, `events`, `streams`, `logs`, `chat_messages`.
-3. The SQL file also inserts a default **Super Admin** account.
+1. Go to [supabase.com](https://supabase.com) and create a new project.
+2. In your project dashboard, go to **SQL Editor → New Query**.
+3. Paste and run the full contents of `supabase_schema.sql`.
+   - Creates PL/pgSQL enum types: `user_status`, `event_status`, `stream_status`
+   - Creates all tables with `BIGSERIAL` PKs and `TIMESTAMPTZ` timestamps
+   - Creates a trigger (`trg_streams_timestamps`) that auto-sets `started_at` / `ended_at` on stream status changes
+   - Seeds the default Super Admin account
+4. Go to **Settings → Database** and copy your connection parameters:
+   - Host: `db.<project-ref>.supabase.co`
+   - Port: `5432`
+   - Database: `postgres`
+   - User: `postgres`
+   - Password: your project database password
+5. Set these as environment variables on your hosting platform (see `.env.example`).
+
+> ⚠️ Use the **direct connection** (port 5432), not the connection pooler (port 6543) — PDO requires a persistent connection.
 
 ---
 
@@ -208,18 +220,18 @@ Before going live, set these environment variables in your web server / hosting 
 
 - `APP_ENV=production`
 - `APP_DEBUG=0`
-- `APP_URL=https://your-domain.com/stream`
-- `DB_HOST=127.0.0.1`
-- `DB_USER=your_db_user`
-- `DB_PASS=your_db_password`
-- `DB_NAME=stream_platform`
+- `APP_URL=https://your-domain.com`
+- `DB_HOST=db.<your-project-ref>.supabase.co`
+- `DB_PORT=5432`
+- `DB_USER=postgres`
+- `DB_PASS=your_supabase_db_password`
+- `DB_NAME=postgres`
 - `HLS_BASE_URL=https://your-stream-domain.com/hls`
-- `APP_VERSION=1.0.0` (increment this on each deployment for cache busting)
+- `APP_VERSION=1.0.0`
 
 Production notes:
 
-1. Import [database.sql](database.sql) once before first production run.
-2. Do not use MySQL root credentials in production.
+1. Run `supabase_schema.sql` once in the Supabase SQL Editor before first production run.
 3. Use HTTPS (TLS) so secure session cookies and HLS links are protected.
 4. Restrict write permissions to only upload folders:
      - `assets/images/`

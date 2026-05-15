@@ -9,7 +9,7 @@ try {
     $stmt = $pdo->query("SELECT * FROM gallery ORDER BY created_at DESC");
     $images = $stmt->fetchAll();
 } catch (PDOException $e) {
-    $isMissingGalleryTable = ($e->getCode() === '42S02') || ((int)($e->errorInfo[1] ?? 0) === 1146);
+    $isMissingGalleryTable = ($e->getCode() === '42P01');
     if ($isMissingGalleryTable) {
         $galleryNotice = 'Gallery is not initialized yet. Import database.sql to create the gallery table.';
     } else {
