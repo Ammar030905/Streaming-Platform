@@ -48,7 +48,7 @@
 | `APP_DEBUG`                     | `0`                                        | Never set to 1 in production               |
 | `APP_URL`                       | `https://streaming-platform-1-3jgm.onrender.com` | Your exact Render URL, no trailing slash   |
 | `APP_VERSION`                   | `1.0.0`                                    | Increment on each deploy for cache busting |
-| `DB_HOST`                       | `db.xxxxxxxxxxxx.supabase.co`              | ⚠️ Replace with your real Supabase host    |
+| `DB_HOST`                       | `db.vizqjooqkjmynjkgfdtx.supabase.co`     |                                            |
 | `DB_PORT`                       | `5432`                                     |                                            |
 | `DB_NAME`                       | `postgres`                                 |                                            |
 | `DB_USER`                       | `postgres`                                 |                                            |

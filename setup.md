@@ -48,7 +48,7 @@ This guide explains how to get your new production-ready Live Streaming platform
    - Creates a trigger (`trg_streams_timestamps`) that auto-sets `started_at` / `ended_at` on stream status changes
    - Seeds the default Super Admin account
 4. Go to **Settings → Database** and copy your connection parameters:
-   - Host: `db.<project-ref>.supabase.co`
+   - Host: `db.vizqjooqkjmynjkgfdtx.supabase.co`
    - Port: `5432`
    - Database: `postgres`
    - User: `postgres`
