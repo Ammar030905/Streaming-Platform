@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: streaming-platform
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "0"
+      - key: APP_URL
+        sync: false
+      - key: APP_VERSION
+        value: "1.0.0"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_NAME
+        value: postgres
+      - key: DB_USER
+        value: postgres
+      - key: DB_PASS
+        sync: false
+      - key: HLS_BASE_URL
+        sync: false
