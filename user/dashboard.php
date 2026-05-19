@@ -4,6 +4,7 @@ require_once '../config.php';
 if(!isset($_SESSION['user_id'])){
     redirect('/login.php');
 }
+validate_user_session();
 
 // Fetch events
 $stmt = $pdo->query("SELECT * FROM events WHERE status != 'ended' ORDER BY status ASC, schedule_date ASC");

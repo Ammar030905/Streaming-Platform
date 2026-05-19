@@ -10,11 +10,9 @@ $success = '';
 $galleryTableExists = false;
 
 try {
-    $galleryTableExists = (bool) $pdo->query(
-        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'gallery')"
-    )->fetchColumn();
+    $galleryTableExists = (bool) $pdo->query("SHOW TABLES LIKE 'gallery'")->fetchColumn();
     if (!$galleryTableExists) {
-        $error = 'Gallery table is missing. Run supabase_schema.sql to enable gallery management.';
+        $error = 'Gallery table is missing. Import database.sql to enable gallery management.';
     }
 } catch (PDOException $e) {
     $error = 'Unable to verify gallery setup right now.';

@@ -32,11 +32,27 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'){
                 $error = 'Your account has been rejected.';
             } else {
                 session_regenerate_id(true);
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['user_name'] = $user['name'];
-                $_SESSION['user_role'] = $user['role'];
+                $sessionToken = bin2hex(random_bytes(32));
+                $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+                $ip = currentClientIp();
+
+                // Single-device enforcement: invalidate any existing session
+                $pdo->prepare("
+                    UPDATE users
+                    SET session_token  = ?,
+                        last_login_at  = NOW(),
+                        last_ip        = ?,
+                        last_user_agent = ?,
+                        login_count    = login_count + 1
+                    WHERE id = ?
+                ")->execute([$sessionToken, $ip, $ua, $user['id']]);
+
+                $_SESSION['user_id']       = $user['id'];
+                $_SESSION['user_name']     = $user['name'];
+                $_SESSION['user_role']     = $user['role'];
+                $_SESSION['session_token'] = $sessionToken;
                 clear_throttle($throttleKey);
-                logAction('user_login', 'User logged in: ' . $user['email']);
+                logAction('user_login', 'User logged in: ' . $user['email'] . ' from ' . $ip);
                 redirect('/user/dashboard.php');
             }
         } else {
@@ -57,6 +73,9 @@ require_once 'includes/header.php';
             <div class="card-body p-4">
                 <?php if($error): ?>
                     <div class="alert alert-danger"><?= e($error) ?></div>
+                <?php endif; ?>
+                <?php if(isset($_GET['kicked'])): ?>
+                    <div class="alert alert-warning">⚠️ You were logged out because your account was accessed from another device.</div>
                 <?php endif; ?>
                 
                 <form method="POST" action="">

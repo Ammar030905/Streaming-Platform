@@ -53,7 +53,9 @@
 | `DB_NAME`                       | `postgres`                                 |                                            |
 | `DB_USER`                       | `postgres`                                 |                                            |
 | `DB_PASS`                       | `your-supabase-db-password`                | ⚠️ From Supabase Settings → Database       |
-| `HLS_BASE_URL`                  | `https://your-stream-server.com/hls`       | Your RTMP/HLS server URL                   |
+| `HLS_BASE_URL`                  | `https://your-stream-origin-or-cdn.com/hls`| Dedicated streaming origin or CDN endpoint |
+
+> Render should host the PHP web app only. Do not point `HLS_BASE_URL` at Render, localhost, or any URL served by the app container.
 
 ---
 
@@ -75,6 +77,20 @@ After setting all env variables:
 - [ ] Go to `/register.php` — register a test user
 - [ ] In admin panel, approve the test user
 - [ ] Log in as the test user at `/login.php`
+
+## LIVE STREAMING ARCHITECTURE
+
+For reliable playback, split the system into two tiers:
+
+1. Web tier: Render hosts the PHP app, admin panel, login, and watch pages.
+2. Streaming tier: a separate HLS origin or managed live platform serves the `.m3u8` playlist and `.ts` segments.
+
+Recommended streaming backends:
+
+1. Managed: Mux, Cloudflare Stream, or AWS IVS.
+2. Self-hosted: Nginx RTMP/LL-HLS on a separate VPS, then put a CDN in front of it.
+
+For a community event and around 50 concurrent viewers, a managed streaming backend is the safest choice. If you self-host, keep the origin off Render and enable CORS plus no-cache headers on the HLS paths.
 
 ---
 
@@ -99,3 +115,4 @@ After setting all env variables:
 | `Service is temporarily unavailable`       | `APP_DEBUG=1` temporarily to see the real error in browser      |
 | `relation "users" does not exist`          | You haven't run `supabase_schema.sql` yet — do Step 2           |
 | `500` on all pages after schema run        | Check all env vars are saved and redeploy                        |
+| Black video / endless buffering             | `HLS_BASE_URL` is offline, wrong, or missing CORS/HLS files. Use a dedicated streaming origin and verify the `.m3u8` URL directly in a browser. |

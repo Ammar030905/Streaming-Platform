@@ -72,7 +72,9 @@ If using **Laragon**:
 
 ## 📡 Step 3: Setting Up RTMP (Nginx)
 
-To accept streams from OBS and convert them to HLS (`.m3u8`) for the web player, you need an RTMP server. We recommend **NGINX with the RTMP module**.
+To accept streams from OBS and convert them to HLS (`.m3u8`) for the web player, you need an RTMP/HLS origin. We recommend **NGINX with the RTMP module** on a separate streaming host.
+
+> If your website is deployed on Render, keep the web app on Render and run RTMP/HLS elsewhere. Render is not suitable as the live ingest or HLS origin for this app.
 
 ### Recommended Low-Latency Nginx Configuration (`nginx.conf`)
 
@@ -140,7 +142,7 @@ http {
 6. Click `Apply` and `OK`.
 7. Click **Start Streaming** in OBS.
 
-When OBS connects, Nginx RTMP starts creating `.ts` and `.m3u8` files in your configured `hls_path`, and viewers can watch the stream live via the platform's video player.
+When OBS connects, Nginx RTMP starts creating `.ts` and `.m3u8` files in your configured `hls_path`, and viewers can watch the stream live via the platform's video player. For production, point `HLS_BASE_URL` to the public HTTPS URL of that HLS folder or to a CDN in front of it.
 
 OBS settings that significantly reduce lag and audio drift:
 
@@ -186,6 +188,10 @@ If users report lag or audio desync:
 4. Confirm reverse proxy/CDN is not caching `.m3u8` or `.ts` files.
 5. Restart OBS and RTMP service if drift grows over time.
 6. If still unstable, move HLS delivery to a CDN and keep RTMP ingest separate.
+
+## 🚀 Render Deployment Note
+
+If the site is live on Render, use Render only for the PHP app and database connectivity. The live stream itself must come from a separate HLS origin or managed streaming platform. Set `HLS_BASE_URL` to a reachable HTTPS endpoint, not `localhost` or the Render URL.
 
 ---
 

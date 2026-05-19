@@ -1,5 +1,16 @@
 -- ============================================================
--- Stream Platform - Supabase PL/pgSQL Schema
+-- MIGRATION: add new columns to users if upgrading existing DB
+-- Safe to run even if columns already exist
+-- ============================================================
+DO $$ BEGIN
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS session_token   VARCHAR(64)  DEFAULT NULL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at   TIMESTAMPTZ  DEFAULT NULL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_logout_at  TIMESTAMPTZ  DEFAULT NULL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_ip         VARCHAR(45)  DEFAULT NULL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_user_agent TEXT         DEFAULT NULL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count     INT          NOT NULL DEFAULT 0;
+END $$;
+
 -- Run in: Supabase Dashboard > SQL Editor > New Query
 -- ============================================================
 
@@ -34,13 +45,19 @@ CREATE TABLE IF NOT EXISTS admins (
 );
 
 CREATE TABLE IF NOT EXISTS users (
-    id         BIGSERIAL PRIMARY KEY,
-    name       VARCHAR(100) NOT NULL,
-    email      VARCHAR(100) NOT NULL UNIQUE,
-    password   VARCHAR(255) NOT NULL,
-    role       VARCHAR(20)  NOT NULL DEFAULT 'user',
-    status     user_status  NOT NULL DEFAULT 'pending',
-    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    id              BIGSERIAL PRIMARY KEY,
+    name            VARCHAR(100) NOT NULL,
+    email           VARCHAR(100) NOT NULL UNIQUE,
+    password        VARCHAR(255) NOT NULL,
+    role            VARCHAR(20)  NOT NULL DEFAULT 'user',
+    status          user_status  NOT NULL DEFAULT 'pending',
+    session_token   VARCHAR(64)  DEFAULT NULL,
+    last_login_at   TIMESTAMPTZ  DEFAULT NULL,
+    last_logout_at  TIMESTAMPTZ  DEFAULT NULL,
+    last_ip         VARCHAR(45)  DEFAULT NULL,
+    last_user_agent TEXT         DEFAULT NULL,
+    login_count     INT          NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS events (
@@ -89,7 +106,22 @@ CREATE TABLE IF NOT EXISTS gallery (
 -- ------------------------------------------------------------
 -- INDEXES
 -- ------------------------------------------------------------
-CREATE INDEX IF NOT EXISTS idx_events_status       ON events(status);
+CREATE TABLE IF NOT EXISTS watch_sessions (
+    id         BIGSERIAL PRIMARY KEY,
+    user_id    BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stream_id  BIGINT      NOT NULL REFERENCES streams(id) ON DELETE CASCADE,
+    event_id   BIGINT      NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_ping  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ended_at   TIMESTAMPTZ DEFAULT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_watch_user_id   ON watch_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_watch_stream_id ON watch_sessions(stream_id);
+CREATE INDEX IF NOT EXISTS idx_watch_last_ping ON watch_sessions(last_ping DESC);
+
 CREATE INDEX IF NOT EXISTS idx_streams_event_id    ON streams(event_id);
 CREATE INDEX IF NOT EXISTS idx_streams_stream_key  ON streams(stream_key);
 CREATE INDEX IF NOT EXISTS idx_chat_stream_id      ON chat_messages(stream_id);
