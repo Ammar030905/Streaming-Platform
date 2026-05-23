@@ -67,12 +67,12 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['event_action'])){
     $action = $_POST['event_action'] ?? '';
     
     if($id > 0 && $action == 'start'){
-        $pdo->prepare("UPDATE events SET status = 'live'::event_status WHERE id = ?")->execute([$id]);
-        $pdo->prepare("UPDATE streams SET status = 'online'::stream_status WHERE event_id = ?")->execute([$id]);
+        $pdo->prepare("UPDATE events SET status = 'live' WHERE id = ?")->execute([$id]);
+        $pdo->prepare("UPDATE streams SET status = 'online' WHERE event_id = ?")->execute([$id]);
         logAction('stream_start', "Started stream for event ID $id");
     } elseif($id > 0 && $action == 'stop'){
-        $pdo->prepare("UPDATE events SET status = 'ended'::event_status WHERE id = ?")->execute([$id]);
-        $pdo->prepare("UPDATE streams SET status = 'offline'::stream_status WHERE event_id = ?")->execute([$id]);
+        $pdo->prepare("UPDATE events SET status = 'ended' WHERE id = ?")->execute([$id]);
+        $pdo->prepare("UPDATE streams SET status = 'offline' WHERE event_id = ?")->execute([$id]);
         logAction('stream_stop', "Stopped stream for event ID $id");
     } elseif($id > 0 && $action == 'delete'){
         $pdo->prepare("DELETE FROM events WHERE id = ?")->execute([$id]);

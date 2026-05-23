@@ -94,6 +94,50 @@ function e($string)
     return htmlspecialchars((string) $string, ENT_QUOTES, 'UTF-8');
 }
 
+function table_exists($tableName)
+{
+    global $pdo;
+    static $cache = [];
+
+    $key = (string) $tableName;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT to_regclass(?) IS NOT NULL");
+        $stmt->execute(['public.' . $key]);
+        $cache[$key] = (bool) $stmt->fetchColumn();
+    } catch (Throwable $e) {
+        $cache[$key] = false;
+    }
+
+    return $cache[$key];
+}
+
+function column_exists($tableName, $columnName)
+{
+    global $pdo;
+    static $cache = [];
+
+    $key = (string) $tableName . '.' . (string) $columnName;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ? LIMIT 1'
+        );
+        $stmt->execute(['public', (string) $tableName, (string) $columnName]);
+        $cache[$key] = (bool) $stmt->fetchColumn();
+    } catch (Throwable $e) {
+        $cache[$key] = false;
+    }
+
+    return $cache[$key];
+}
+
 // Single-device enforcement: validate session token on every request
 function validate_user_session()
 {
@@ -101,11 +145,20 @@ function validate_user_session()
     if (!isset($_SESSION['user_id'], $_SESSION['session_token'])) {
         return;
     }
+
+    if (!column_exists('users', 'session_token')) {
+        return;
+    }
+
     $stmt = $pdo->prepare('SELECT session_token FROM users WHERE id = ?');
-    $stmt->execute([(int) $_SESSION['user_id']]);
-    $row = $stmt->fetch();
+    try {
+        $stmt->execute([(int) $_SESSION['user_id']]);
+        $row = $stmt->fetch();
+    } catch (Throwable $e) {
+        return;
+    }
+
     if (!$row || !hash_equals((string) $row['session_token'], (string) $_SESSION['session_token'])) {
-        // Another device logged in — kill this session
         $_SESSION = [];
         session_unset();
         session_destroy();

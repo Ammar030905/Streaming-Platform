@@ -21,7 +21,7 @@ if(!$event){
 
 // Record watch session (only if stream is live)
 $watchSessionId = null;
-if($event['status'] === 'live' && $event['stream_id']) {
+if($event['status'] === 'live' && $event['stream_id'] && table_exists('watch_sessions')) {
     // End any previous open watch session for this user on this stream
     $pdo->prepare("UPDATE watch_sessions SET ended_at = NOW() WHERE user_id = ? AND stream_id = ? AND ended_at IS NULL")
         ->execute([$_SESSION['user_id'], $event['stream_id']]);

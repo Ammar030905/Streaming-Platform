@@ -6,6 +6,11 @@ if(!isset($_SESSION['user_id'])){
     exit;
 }
 
+if (!table_exists('watch_sessions')) {
+    http_response_code(204);
+    exit;
+}
+
 $watchSessionId = (int)(($_POST['watch_session_id'] ?? $_GET['watch_session_id'] ?? 0));
 if($watchSessionId <= 0){
     http_response_code(400);

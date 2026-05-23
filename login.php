@@ -36,21 +36,29 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'){
                 $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
                 $ip = currentClientIp();
 
-                // Single-device enforcement: invalidate any existing session
-                $pdo->prepare("
-                    UPDATE users
-                    SET session_token  = ?,
-                        last_login_at  = NOW(),
-                        last_ip        = ?,
-                        last_user_agent = ?,
-                        login_count    = login_count + 1
-                    WHERE id = ?
-                ")->execute([$sessionToken, $ip, $ua, $user['id']]);
+                // Single-device/session tracking if upgraded schema exists.
+                if (
+                    column_exists('users', 'session_token') &&
+                    column_exists('users', 'last_login_at') &&
+                    column_exists('users', 'last_ip') &&
+                    column_exists('users', 'last_user_agent') &&
+                    column_exists('users', 'login_count')
+                ) {
+                    $pdo->prepare("
+                        UPDATE users
+                        SET session_token  = ?,
+                            last_login_at  = NOW(),
+                            last_ip        = ?,
+                            last_user_agent = ?,
+                            login_count    = login_count + 1
+                        WHERE id = ?
+                    ")->execute([$sessionToken, $ip, $ua, $user['id']]);
+                    $_SESSION['session_token'] = $sessionToken;
+                }
 
                 $_SESSION['user_id']       = $user['id'];
                 $_SESSION['user_name']     = $user['name'];
                 $_SESSION['user_role']     = $user['role'];
-                $_SESSION['session_token'] = $sessionToken;
                 clear_throttle($throttleKey);
                 logAction('user_login', 'User logged in: ' . $user['email'] . ' from ' . $ip);
                 redirect('/user/dashboard.php');

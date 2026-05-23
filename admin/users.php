@@ -20,10 +20,10 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['user_action'])){
     $action = $_POST['user_action'] ?? '';
 
     if($id > 0 && $action == 'approve'){
-        $pdo->prepare("UPDATE users SET status = 'approved'::user_status WHERE id = ?")->execute([$id]);
+        $pdo->prepare("UPDATE users SET status = 'approved' WHERE id = ?")->execute([$id]);
         logAction('approve_user', "Approved user ID $id");
     } elseif($id > 0 && $action == 'reject'){
-        $pdo->prepare("UPDATE users SET status = 'rejected'::user_status WHERE id = ?")->execute([$id]);
+        $pdo->prepare("UPDATE users SET status = 'rejected' WHERE id = ?")->execute([$id]);
         logAction('reject_user', "Rejected user ID $id");
     } elseif($id > 0 && $action == 'delete'){
         $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$id]);

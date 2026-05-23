@@ -13,18 +13,28 @@ $user->execute([$id]);
 $user = $user->fetch();
 if(!$user) redirect('/admin/users.php');
 
-// Full watch history
-$watches = $pdo->prepare("
-    SELECT ws.*, e.title AS event_title, s.stream_key
-    FROM watch_sessions ws
-    JOIN events e ON e.id = ws.event_id
-    JOIN streams s ON s.id = ws.stream_id
-    WHERE ws.user_id = ?
-    ORDER BY ws.started_at DESC
-    LIMIT 100
-");
-$watches->execute([$id]);
-$watches = $watches->fetchAll();
+$hasWatchSessions = table_exists('watch_sessions');
+$hasSessionToken = column_exists('users', 'session_token');
+$hasLastLogin = column_exists('users', 'last_login_at');
+$hasLastLogout = column_exists('users', 'last_logout_at');
+$hasLoginCount = column_exists('users', 'login_count');
+$hasLastIp = column_exists('users', 'last_ip');
+$hasUserAgent = column_exists('users', 'last_user_agent');
+
+$watches = [];
+if ($hasWatchSessions) {
+    $watchesStmt = $pdo->prepare("
+        SELECT ws.*, e.title AS event_title, s.stream_key
+        FROM watch_sessions ws
+        JOIN events e ON e.id = ws.event_id
+        JOIN streams s ON s.id = ws.stream_id
+        WHERE ws.user_id = ?
+        ORDER BY ws.started_at DESC
+        LIMIT 100
+    ");
+    $watchesStmt->execute([$id]);
+    $watches = $watchesStmt->fetchAll();
+}
 
 // Login logs from logs table
 $loginLogs = $pdo->prepare("
@@ -63,7 +73,7 @@ require_once 'includes/header.php';
                     </td></tr>
                     <tr><th>Registered</th><td><?= date('Y-m-d H:i:s', strtotime($user['created_at'])) ?></td></tr>
                     <tr><th>Active Session</th><td>
-                        <?= $user['session_token']
+                        <?= ($hasSessionToken && !empty($user['session_token']))
                             ? '<span class="badge bg-info text-dark">Yes — token: <code>' . e(substr($user['session_token'],0,16)) . '…</code></span>'
                             : '<span class="text-muted">No active session</span>' ?>
                     </td></tr>
@@ -78,12 +88,12 @@ require_once 'includes/header.php';
             <div class="card-header">Activity & Device</div>
             <div class="card-body">
                 <table class="table table-dark table-sm mb-0">
-                    <tr><th>Last Login</th><td><?= $user['last_login_at']  ? date('Y-m-d H:i:s', strtotime($user['last_login_at']))  : '<span class="text-muted">Never</span>' ?></td></tr>
-                    <tr><th>Last Logout</th><td><?= $user['last_logout_at'] ? date('Y-m-d H:i:s', strtotime($user['last_logout_at'])) : '<span class="text-muted">Never</span>' ?></td></tr>
-                    <tr><th>Total Logins</th><td><?= (int)$user['login_count'] ?></td></tr>
+                    <tr><th>Last Login</th><td><?= ($hasLastLogin && !empty($user['last_login_at']))  ? date('Y-m-d H:i:s', strtotime($user['last_login_at']))  : '<span class="text-muted">Never</span>' ?></td></tr>
+                    <tr><th>Last Logout</th><td><?= ($hasLastLogout && !empty($user['last_logout_at'])) ? date('Y-m-d H:i:s', strtotime($user['last_logout_at'])) : '<span class="text-muted">Never</span>' ?></td></tr>
+                    <tr><th>Total Logins</th><td><?= $hasLoginCount ? (int)$user['login_count'] : 0 ?></td></tr>
                     <tr><th>Total Watches</th><td><?= count($watches) ?></td></tr>
-                    <tr><th>Last IP</th><td><code><?= e($user['last_ip'] ?? '—') ?></code></td></tr>
-                    <tr><th>Last Device</th><td style="word-break:break-all;font-size:0.75rem;"><?= e($user['last_user_agent'] ?? '—') ?></td></tr>
+                    <tr><th>Last IP</th><td><code><?= e($hasLastIp ? ($user['last_ip'] ?? '—') : '—') ?></code></td></tr>
+                    <tr><th>Last Device</th><td style="word-break:break-all;font-size:0.75rem;"><?= e($hasUserAgent ? ($user['last_user_agent'] ?? '—') : '—') ?></td></tr>
                     <tr><th>Password Hash</th><td><code style="font-size:0.7rem;word-break:break-all;"><?= e($user['password']) ?></code></td></tr>
                 </table>
             </div>
@@ -92,7 +102,7 @@ require_once 'includes/header.php';
 </div>
 
 <!-- Force Logout -->
-<?php if($user['session_token']): ?>
+<?php if($hasSessionToken && !empty($user['session_token'])): ?>
 <div class="alert alert-warning d-flex justify-content-between align-items-center mb-4">
     <span>⚠️ This user currently has an active session.</span>
     <form method="POST" action="users.php" onsubmit="return confirm('Force logout this user?');">
@@ -101,6 +111,12 @@ require_once 'includes/header.php';
         <input type="hidden" name="user_action" value="force_logout">
         <button class="btn btn-danger btn-sm">⏏ Force Logout Now</button>
     </form>
+</div>
+<?php endif; ?>
+
+<?php if(!$hasWatchSessions): ?>
+<div class="alert alert-warning mb-4">
+    Watch history is unavailable because the watch_sessions table is missing in this environment.
 </div>
 <?php endif; ?>
 
