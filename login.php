@@ -10,7 +10,7 @@ $error = '';
 if($_SERVER['REQUEST_METHOD'] == 'POST'){
     verify_csrf_or_fail();
 
-    $throttleKey = 'user_login_' . md5(currentClientIp());
+    $throttleKey = 'user_login_' . md5(currentClientIp() . '|' . strtolower(trim((string)($_POST['email'] ?? ''))));
     if (!throttle_attempts($throttleKey, 6, 300)) {
         $error = 'Too many login attempts. Please wait a few minutes and try again.';
     }
@@ -59,11 +59,13 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'){
                 $_SESSION['user_id']       = $user['id'];
                 $_SESSION['user_name']     = $user['name'];
                 $_SESSION['user_role']     = $user['role'];
+                $_SESSION['ua_fingerprint'] = session_user_agent_fingerprint();
                 clear_throttle($throttleKey);
                 logAction('user_login', 'User logged in: ' . $user['email'] . ' from ' . $ip);
                 redirect('/user/dashboard.php');
             }
         } else {
+            usleep(300000);
             $error = 'Invalid email or password.';
         }
     }

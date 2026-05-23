@@ -5,6 +5,9 @@ require_once 'config.php';
 $stmt = $pdo->query("SELECT * FROM events WHERE status IN ('live', 'upcoming') ORDER BY schedule_date ASC LIMIT 6");
 $events = $stmt->fetchAll();
 
+$pageTitle = 'StreamHub | Community Live Events';
+$pageDescription = 'Watch trusted community live streams with secure access, smooth playback, and upcoming event schedules.';
+
 require_once 'includes/header.php';
 ?>
 
@@ -47,6 +50,9 @@ require_once 'includes/header.php';
                             <span class="badge badge-live mb-3 px-3 py-2">LIVE NOW</span>
                         <?php else: ?>
                             <span class="badge bg-secondary mb-3 px-3 py-2 text-white">Upcoming</span>
+                            <div class="countdown-chip mb-3">
+                                Starts in <strong data-countdown-target="<?= e(gmdate('c', strtotime($event['schedule_date']))) ?>">Calculating...</strong>
+                            </div>
                         <?php endif; ?>
                         
                         <p class="card-text text-secondary"><?= e(substr($event['description'], 0, 100)) ?>...</p>

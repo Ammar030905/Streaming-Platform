@@ -15,6 +15,19 @@ $streams_live = $pdo->query("SELECT COUNT(*) FROM events WHERE status = 'live'")
 $recent_users = $pdo->query("SELECT * FROM users ORDER BY created_at DESC LIMIT 5")->fetchAll();
 $recent_events = $pdo->query("SELECT * FROM events ORDER BY created_at DESC LIMIT 5")->fetchAll();
 
+$liveViewerSessions = 0;
+$avgWatchMinutes = 0;
+$loginsToday = 0;
+
+if (table_exists('watch_sessions')) {
+    $liveViewerSessions = (int) $pdo->query("SELECT COUNT(*) FROM watch_sessions WHERE ended_at IS NULL AND last_ping > NOW() - INTERVAL '90 seconds'")->fetchColumn();
+
+    $avgDurationSeconds = (float) $pdo->query("SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(ended_at, NOW()) - started_at))), 0) FROM watch_sessions")->fetchColumn();
+    $avgWatchMinutes = (int) round($avgDurationSeconds / 60);
+}
+
+$loginsToday = (int) $pdo->query("SELECT COUNT(*) FROM logs WHERE action IN ('user_login','admin_login') AND created_at::date = CURRENT_DATE")->fetchColumn();
+
 require_once 'includes/header.php';
 ?>
 
@@ -47,6 +60,25 @@ require_once 'includes/header.php';
             <h3><?= $streams_live ?></h3>
             <p class="mb-0">Live Streams</p>
         </div>
+    </div>
+</div>
+
+<div class="metric-grid mb-4">
+    <div class="metric-card">
+        <p class="metric-value"><?= $liveViewerSessions ?></p>
+        <p class="metric-label">Active Viewers (Last 90s)</p>
+    </div>
+    <div class="metric-card">
+        <p class="metric-value"><?= $avgWatchMinutes ?></p>
+        <p class="metric-label">Avg Watch Duration (min)</p>
+    </div>
+    <div class="metric-card">
+        <p class="metric-value"><?= $loginsToday ?></p>
+        <p class="metric-label">Logins Today</p>
+    </div>
+    <div class="metric-card">
+        <p class="metric-value"><?= date('H:i') ?></p>
+        <p class="metric-label">Dashboard Refreshed At</p>
     </div>
 </div>
 

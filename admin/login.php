@@ -10,7 +10,7 @@ $error = '';
 if($_SERVER['REQUEST_METHOD'] == 'POST'){
     verify_csrf_or_fail();
 
-    $throttleKey = 'admin_login_' . md5(currentClientIp());
+    $throttleKey = 'admin_login_' . md5(currentClientIp() . '|' . strtolower(trim((string)($_POST['email'] ?? ''))));
     if (!throttle_attempts($throttleKey, 6, 300)) {
         $error = 'Too many login attempts. Please wait a few minutes and try again.';
     }
@@ -29,10 +29,12 @@ if($_SERVER['REQUEST_METHOD'] == 'POST'){
             session_regenerate_id(true);
             $_SESSION['admin_id'] = $admin['id'];
             $_SESSION['admin_name'] = $admin['username'];
+            $_SESSION['ua_fingerprint'] = session_user_agent_fingerprint();
             clear_throttle($throttleKey);
             logAction('admin_login', 'Admin logged in: ' . $admin['email']);
             redirect('/admin/dashboard.php');
         } else {
+            usleep(300000);
             $error = 'Invalid credentials.';
         }
     }

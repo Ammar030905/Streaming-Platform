@@ -14,10 +14,25 @@ define('APP_DEBUG', envValue('APP_DEBUG', '1') === '1');
 define('APP_VERSION', envValue('APP_VERSION', '1.0.0'));
 define('HLS_BASE_URL', rtrim((string) envValue('HLS_BASE_URL', 'http://localhost:8080/hls'), '/'));
 
+$requestId = trim((string)($_SERVER['HTTP_X_REQUEST_ID'] ?? ''));
+if ($requestId === '') {
+    $requestId = bin2hex(random_bytes(8));
+}
+define('REQUEST_ID', $requestId);
+
 ini_set('display_errors', APP_DEBUG ? '1' : '0');
 ini_set('log_errors', '1');
 
-$secureCookie = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https');
+
+ini_set('session.use_strict_mode', '1');
+ini_set('session.use_only_cookies', '1');
+ini_set('session.cookie_httponly', '1');
+ini_set('session.cookie_secure', $isHttps ? '1' : '0');
+ini_set('session.cookie_samesite', 'Lax');
+
+$secureCookie = $isHttps;
 
 session_set_cookie_params([
     'lifetime' => 0,
@@ -32,6 +47,35 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+function session_user_agent_fingerprint()
+{
+    $ua = (string)($_SERVER['HTTP_USER_AGENT'] ?? 'unknown');
+    return hash('sha256', $ua);
+}
+
+function enforce_session_integrity()
+{
+    if (!isset($_SESSION['user_id']) && !isset($_SESSION['admin_id'])) {
+        return;
+    }
+
+    $currentFingerprint = session_user_agent_fingerprint();
+    if (!isset($_SESSION['ua_fingerprint'])) {
+        $_SESSION['ua_fingerprint'] = $currentFingerprint;
+        return;
+    }
+
+    if (!hash_equals((string)$_SESSION['ua_fingerprint'], $currentFingerprint)) {
+        $loginTarget = isset($_SESSION['admin_id']) ? '/admin/login.php' : '/login.php?kicked=1';
+        app_log('Session fingerprint mismatch', ['ip' => currentClientIp()]);
+        $_SESSION = [];
+        session_unset();
+        session_destroy();
+        header('Location: ' . BASE_URL . $loginTarget);
+        exit;
+    }
+}
+
 define('DB_HOST', envValue('DB_HOST', ''));
 define('DB_PORT', envValue('DB_PORT', '5432'));
 define('DB_USER', envValue('DB_USER', 'postgres'));
@@ -43,7 +87,7 @@ $configuredBaseUrl = rtrim((string) envValue('APP_URL', ''), '/');
 if ($configuredBaseUrl !== '') {
     define('BASE_URL', $configuredBaseUrl);
 } else {
-    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
+    $protocol = $isHttps ? 'https://' : 'http://';
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
     $dir = dirname($_SERVER['SCRIPT_NAME'] ?? '/');
     if ($dir === '\\' || $dir === '/') {
@@ -60,16 +104,20 @@ function sendSecurityHeaders()
         return;
     }
 
+    header('X-Request-Id: ' . REQUEST_ID);
     header('X-Frame-Options: SAMEORIGIN');
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Cross-Origin-Resource-Policy: cross-origin');
     header("Permissions-Policy: camera=(), microphone=(), geolocation=()");
-    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+    header("Content-Security-Policy: default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https:; frame-ancestors 'self'; form-action 'self'; base-uri 'self'");
+    if ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https')) {
         header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
     }
 }
 
 sendSecurityHeaders();
+enforce_session_integrity();
 
 try {
     $dsn = 'pgsql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';sslmode=require';
@@ -92,6 +140,16 @@ try {
 function e($string)
 {
     return htmlspecialchars((string) $string, ENT_QUOTES, 'UTF-8');
+}
+
+function app_log($message, array $context = [])
+{
+    $payload = [
+        'request_id' => REQUEST_ID,
+        'message' => (string) $message,
+        'context' => $context
+    ];
+    error_log(json_encode($payload, JSON_UNESCAPED_SLASHES));
 }
 
 function table_exists($tableName)
@@ -184,6 +242,20 @@ function asset_url($relativePath)
 
 function currentClientIp()
 {
+    $xff = trim((string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
+    if ($xff !== '') {
+        $parts = explode(',', $xff);
+        $candidate = trim($parts[0]);
+        if (filter_var($candidate, FILTER_VALIDATE_IP)) {
+            return $candidate;
+        }
+    }
+
+    $realIp = trim((string)($_SERVER['HTTP_X_REAL_IP'] ?? ''));
+    if ($realIp !== '' && filter_var($realIp, FILTER_VALIDATE_IP)) {
+        return $realIp;
+    }
+
     return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 }
 
@@ -191,7 +263,8 @@ function logAction($action, $details = '')
 {
     global $pdo;
     $stmt = $pdo->prepare('INSERT INTO logs (action, details, ip_address) VALUES (?, ?, ?)');
-    $stmt->execute([$action, $details, currentClientIp()]);
+    $detailsWithRequest = trim((string)$details . ' [rid:' . REQUEST_ID . ']');
+    $stmt->execute([$action, $detailsWithRequest, currentClientIp()]);
 }
 
 function csrf_token()

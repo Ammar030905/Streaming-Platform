@@ -19,6 +19,11 @@ if(!$event){
     die("Event not found.");
 }
 
+$pageTitle = $event['title'] . ' | StreamHub Live Watch';
+$pageDescription = !empty($event['description'])
+    ? substr(trim((string)$event['description']), 0, 160)
+    : 'Watch live community telecast events on StreamHub.';
+
 // Record watch session (only if stream is live)
 $watchSessionId = null;
 if($event['status'] === 'live' && $event['stream_id'] && table_exists('watch_sessions')) {
@@ -56,16 +61,17 @@ require_once '../includes/header.php';
                 <?php if($event['status'] == 'live' && !empty($event['stream_key'])): ?>
                     <?php $manifestUrl = rtrim(HLS_BASE_URL, '/') . '/' . rawurlencode($event['stream_key']) . '.m3u8'; ?>
                     <div class="video-container" data-manifest-url="<?= e($manifestUrl) ?>">
-                        <video id="stream-player" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="metadata" playsinline webkit-playsinline crossorigin="anonymous" data-setup='{"fluid": true}' data-manifest-url="<?= e($manifestUrl) ?>">
-                            <p class="vjs-no-js">To view this video please enable JavaScript.</p>
+                        <video id="stream-player" class="stream-player-native" controls preload="metadata" playsinline webkit-playsinline crossorigin="anonymous" data-manifest-url="<?= e($manifestUrl) ?>" poster="<?= $event['thumbnail'] ? e(BASE_URL . '/assets/images/' . $event['thumbnail']) : '' ?>">
+                            Your browser does not support HTML5 video.
                         </video>
-                        <div class="stream-status alert alert-dark border-0 mt-3 mb-0" role="status">
-                            Connecting to the live stream...
-                        </div>
                     </div>
+                    <div class="stream-status alert alert-dark border-0 mt-3 mb-0" role="status">Connecting to the live stream...</div>
                 <?php else: ?>
                     <div class="video-container d-flex align-items-center justify-content-center flex-column text-center p-5">
                         <h4 class="text-muted mb-3">Stream is currently offline</h4>
+                        <div class="countdown-chip mb-3">
+                            Starts in <strong data-countdown-target="<?= e(gmdate('c', strtotime($event['schedule_date']))) ?>">Calculating...</strong>
+                        </div>
                         <?php if($event['thumbnail']): ?>
                             <img src="<?= BASE_URL ?>/assets/images/<?= e($event['thumbnail']) ?>" alt="Thumbnail" class="img-fluid rounded" style="max-height: 300px; opacity: 0.5;">
                         <?php endif; ?>
@@ -83,7 +89,7 @@ require_once '../includes/header.php';
     </div>
 </div>
 
-<script src="https://vjs.zencdn.net/8.6.1/video.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
 <?php if($watchSessionId): ?>
 <script>
     const watchSessionId = <?= (int)$watchSessionId ?>;

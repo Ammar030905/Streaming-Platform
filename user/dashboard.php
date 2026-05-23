@@ -21,6 +21,7 @@ require_once '../includes/header.php';
 <div class="row">
     <div class="col-md-12 mb-4">
         <h4>Live & Upcoming Streams</h4>
+        <p class="text-muted mb-0">Tap any live card to join instantly. Upcoming events show a live countdown.</p>
     </div>
     
     <?php if(count($events) > 0): ?>
@@ -37,19 +38,27 @@ require_once '../includes/header.php';
                     
                     <div class="card-body">
                         <h5 class="card-title"><?= e($event['title']) ?></h5>
-                        <p class="card-text text-muted small">Scheduled: <?= date('F j, Y, g:i a', strtotime($event['schedule_date'])) ?></p>
-                        
-                        <?php if($event['status'] == 'live'): ?>
-                            <div class="mb-3">
-                                <span class="badge badge-live px-3 py-2">LIVE NOW</span>
+                        <p class="card-text text-muted small mb-2">Scheduled: <?= date('F j, Y, g:i a', strtotime($event['schedule_date'])) ?></p>
+                        <?php if($event['status'] !== 'live'): ?>
+                            <div class="countdown-chip mb-3">
+                                Starts in
+                                <strong data-countdown-target="<?= e(gmdate('c', strtotime($event['schedule_date']))) ?>">Calculating...</strong>
                             </div>
-                            <a href="<?= BASE_URL ?>/user/watch.php?id=<?= $event['id'] ?>" class="btn btn-primary w-100">Watch Stream</a>
-                        <?php else: ?>
-                            <div class="mb-3">
-                                <span class="badge bg-secondary">Upcoming</span>
-                            </div>
-                            <button class="btn btn-outline-secondary w-100" disabled>Not Started Yet</button>
                         <?php endif; ?>
+                        
+                        <div class="event-card-actions">
+                            <?php if($event['status'] == 'live'): ?>
+                                <div class="mb-1">
+                                    <span class="badge badge-live px-3 py-2">LIVE NOW</span>
+                                </div>
+                                <a href="<?= BASE_URL ?>/user/watch.php?id=<?= $event['id'] ?>" class="btn btn-primary w-100">Watch Stream</a>
+                            <?php else: ?>
+                                <div class="mb-1">
+                                    <span class="badge bg-secondary">Upcoming</span>
+                                </div>
+                                <button class="btn btn-outline-secondary w-100" disabled>Waiting for live start</button>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
             </div>

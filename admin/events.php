@@ -19,6 +19,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_event'])){
         $msg = 'Event title and schedule date are required.';
     } elseif (strtotime($schedule_date) === false) {
         $msg = 'Invalid schedule date.';
+    } elseif (strtotime($schedule_date) < (time() - 300)) {
+        $msg = 'Schedule date cannot be in the past.';
     } else {
         $thumbnail = null;
         if(isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK){
@@ -81,8 +83,16 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['event_action'])){
     redirect('/admin/events.php');
 }
 
-// Fetch events with stream key
-$stmt = $pdo->query("SELECT e.*, s.stream_key FROM events e LEFT JOIN streams s ON e.id = s.event_id ORDER BY e.created_at DESC");
+// Fetch events with stream key + quick live metrics
+$liveViewerSql = table_exists('watch_sessions')
+    ? "(SELECT COUNT(*) FROM watch_sessions ws WHERE ws.event_id = e.id AND ws.ended_at IS NULL AND ws.last_ping > NOW() - INTERVAL '90 seconds')"
+    : "0";
+
+$stmt = $pdo->query("SELECT e.*, s.stream_key, s.status AS stream_status,
+    {$liveViewerSql} AS live_viewers
+    FROM events e
+    LEFT JOIN streams s ON e.id = s.event_id
+    ORDER BY e.created_at DESC");
 $events = $stmt->fetchAll();
 
 require_once 'includes/header.php';
@@ -118,9 +128,13 @@ require_once 'includes/header.php';
                     </div>
                     <div class="col-8">
                         <p class="mb-1"><strong>Schedule:</strong> <?= date('M j, Y H:i', strtotime($event['schedule_date'])) ?></p>
+                        <?php if($event['status'] === 'upcoming'): ?>
+                            <p class="mb-1"><span class="countdown-chip">Starts in <strong data-countdown-target="<?= e(gmdate('c', strtotime($event['schedule_date']))) ?>">Calculating...</strong></span></p>
+                        <?php endif; ?>
                         <hr class="border-secondary my-2">
                         <p class="mb-1 text-info small"><strong>RTMP URL:</strong> rtmp://your-server-ip/live</p>
                         <p class="mb-1 text-warning small"><strong>Stream Key:</strong> <?= e($event['stream_key'] ?? 'N/A') ?></p>
+                        <p class="mb-0 small text-muted"><strong>Live Viewers:</strong> <?= (int)($event['live_viewers'] ?? 0) ?></p>
                     </div>
                 </div>
             </div>

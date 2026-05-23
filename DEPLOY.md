@@ -92,6 +92,48 @@ Recommended streaming backends:
 
 For a community event and around 50 concurrent viewers, a managed streaming backend is the safest choice. If you self-host, keep the origin off Render and enable CORS plus no-cache headers on the HLS paths.
 
+## STREAMING STABILITY BASELINE
+
+Use these baseline settings for consistent long-duration telecasts:
+
+1. HLS segment duration: `1s` to `2s`.
+2. Playlist window: `6s` to `12s`.
+3. OBS keyframe interval: `1s`.
+4. OBS bitrate for 720p: `2500-4500 kbps` with CBR.
+5. Audio sample rate: `48kHz`, stereo.
+6. Keep stream origin and CDN clocks synchronized via NTP.
+
+## OPERATIONS AND MONITORING
+
+Before each event:
+
+1. Run a 20-minute dry run with at least two viewer devices.
+2. Validate the exact event playlist URL from your app: `HLS_BASE_URL/<stream_key>.m3u8`.
+3. Confirm the playlist updates every 1-2 seconds.
+4. Verify origin CPU, memory, and egress have headroom above 30%.
+
+During live event:
+
+1. Monitor active viewers from admin dashboard and CDN traffic metrics.
+2. Watch for repeated player reconnects or segment 404/5xx spikes.
+3. Keep one operator on OBS and one operator on platform moderation.
+
+After event:
+
+1. Archive logs with request IDs.
+2. Record incident notes (time, symptom, mitigation).
+3. Update runbook with any recurring issue signatures.
+
+## SCALING PLAN
+
+To scale beyond basic usage:
+
+1. Keep app tier and stream tier isolated.
+2. Put HLS behind a CDN (Cloudflare, Fastly, CloudFront).
+3. Use Postgres connection pooling and monitor slow queries.
+4. Move sessions/rate limits to Redis for multi-instance app scaling.
+5. Add synthetic monitoring for `/admin/login.php`, `/user/dashboard.php`, and a sample event playlist URL.
+
 ---
 
 ## 🔐 Default Admin Credentials
