@@ -5,6 +5,13 @@ if(!isset($_SESSION['admin_id'])){
     redirect('/admin/login.php');
 }
 
+$hasWatchSessions = false;
+try {
+    $hasWatchSessions = (bool) $pdo->query("SELECT to_regclass('public.watch_sessions') IS NOT NULL")->fetchColumn();
+} catch (PDOException $e) {
+    $hasWatchSessions = false;
+}
+
 // Handle actions
 if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['user_action'])){
     verify_csrf_or_fail();
@@ -23,31 +30,49 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['user_action'])){
         logAction('delete_user', "Deleted user ID $id");
     } elseif($id > 0 && $action == 'force_logout'){
         $pdo->prepare("UPDATE users SET session_token = NULL, last_logout_at = NOW() WHERE id = ?")->execute([$id]);
-        $pdo->prepare("UPDATE watch_sessions SET ended_at = NOW() WHERE user_id = ? AND ended_at IS NULL")->execute([$id]);
+        if ($hasWatchSessions) {
+            $pdo->prepare("UPDATE watch_sessions SET ended_at = NOW() WHERE user_id = ? AND ended_at IS NULL")->execute([$id]);
+        }
         logAction('force_logout', "Force-logged out user ID $id");
     }
     redirect('/admin/users.php');
 }
 
 // Fetch all users with their current watch session (if any)
-$users = $pdo->query("
-    SELECT
-        u.*,
-        ws.stream_id        AS watching_stream_id,
-        ws.last_ping        AS watching_last_ping,
-        e.title             AS watching_event_title,
-        e.id                AS watching_event_id,
-        ws.ip_address       AS watch_ip,
-        ws.started_at       AS watch_started_at,
-        (SELECT COUNT(*) FROM watch_sessions w2 WHERE w2.user_id = u.id) AS total_watches
-    FROM users u
-    LEFT JOIN watch_sessions ws
-        ON ws.user_id = u.id
-        AND ws.ended_at IS NULL
-        AND ws.last_ping > NOW() - INTERVAL '90 seconds'
-    LEFT JOIN events e ON e.id = ws.event_id
-    ORDER BY u.created_at DESC
-")->fetchAll();
+if ($hasWatchSessions) {
+    $users = $pdo->query("
+        SELECT
+            u.*,
+            ws.stream_id        AS watching_stream_id,
+            ws.last_ping        AS watching_last_ping,
+            e.title             AS watching_event_title,
+            e.id                AS watching_event_id,
+            ws.ip_address       AS watch_ip,
+            ws.started_at       AS watch_started_at,
+            (SELECT COUNT(*) FROM watch_sessions w2 WHERE w2.user_id = u.id) AS total_watches
+        FROM users u
+        LEFT JOIN watch_sessions ws
+            ON ws.user_id = u.id
+            AND ws.ended_at IS NULL
+            AND ws.last_ping > NOW() - INTERVAL '90 seconds'
+        LEFT JOIN events e ON e.id = ws.event_id
+        ORDER BY u.created_at DESC
+    ")->fetchAll();
+} else {
+    $users = $pdo->query("
+        SELECT
+            u.*,
+            NULL AS watching_stream_id,
+            NULL AS watching_last_ping,
+            NULL AS watching_event_title,
+            NULL AS watching_event_id,
+            NULL AS watch_ip,
+            NULL AS watch_started_at,
+            0 AS total_watches
+        FROM users u
+        ORDER BY u.created_at DESC
+    ")->fetchAll();
+}
 
 require_once 'includes/header.php';
 ?>
@@ -55,6 +80,12 @@ require_once 'includes/header.php';
 <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-secondary">
     <h2>Manage Users <span class="badge bg-secondary fs-6"><?= count($users) ?></span></h2>
 </div>
+
+<?php if(!$hasWatchSessions): ?>
+    <div class="alert alert-warning">
+        Watch tracking tables are missing, so online status and watch history are disabled until you run the full schema.
+    </div>
+<?php endif; ?>
 
 <div class="card">
     <div class="card-body p-0 table-responsive">
@@ -153,7 +184,7 @@ require_once 'includes/header.php';
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="user_id" value="<?= (int)$user['id'] ?>">
                                     <input type="hidden" name="user_action" value="force_logout">
-                                    <button class="btn btn-sm btn-danger">⏏ Kick</button>
+                                    <button class="btn btn-sm btn-danger">Kick</button>
                                 </form>
                             <?php endif; ?>
                             <a href="user_detail.php?id=<?= (int)$user['id'] ?>" class="btn btn-sm btn-outline-info">Detail</a>
